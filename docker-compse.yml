@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # Jenkins CI/CD master node
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins-master
+    restart: on-failure
+    # Run without elevated privileges for security
+    privileged: false 
+    # Use restricted 'jenkins' user instead of root
+    user: jenkins 
+    ports:
+      # Web UI port
+      - "8080:8080" 
+      # Agent connection port
+      - "50000:50000" 
+    environment:
+      # Connect to DinD Docker daemon via TCP
+      - DOCKER_HOST=tcp://docker:2376 
+      # Path to TLS certificates
+      - DOCKER_CERT_PATH=/certs/client 
+      # Enable TLS verification
+      - DOCKER_TLS_VERIFY=1 
+    volumes:
+      # Persist Jenkins data and jobs
+      - jenkins-data:/var/jenkins_home 
+      # Mount TLS certs as read-only
+      - jenkins-docker-certs:/certs/client:ro 
+
+  # Docker-in-Docker service
+  docker:
+    image: docker:dind
+    container_name: jenkins-docker
+    # Requires privilege to run nested containers
+    privileged: true 
+    environment:
+      # Directory for generated TLS certs
+      - DOCKER_TLS_CERTDIR=/certs 
+    volumes:
+      # Share workspace with Jenkins
+      - jenkins-data:/var/jenkins_home 
+      # Share TLS certs with Jenkins
+      - jenkins-docker-certs:/certs/client 
+
+volumes:
+  # Volume for Jenkins data persistence
+  jenkins-data: 
+  # Volume for TLS certificates
+  jenkins-docker-certs:
